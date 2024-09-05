@@ -1,0 +1,135 @@
+Add-Type -assembly "Microsoft.Office.Interop.Outlook"
+$Outlook = New-Object -comobject Outlook.Application
+$namespace = $Outlook.GetNameSpace("MAPI")
+#sym hours request
+#$items = "bizzHoursReqs"
+#$path = "\contoso\Sales\bizzHoursReqs"
+# CSV in line 10 needs to be at least a 2 column CSV with a 'number' and 'name' column ; can be substitued for '$source1' above if no corrupt folders exist; but count IF check on line 17 needs to be eliminated or avoided.
+
+#$source1 = $namespace.Folders.Item(1).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders
+$glop = import-csv .\symHoursFolds.csv #needs to be at least a 2 column CSV with a 'number' and 'name' column ; can be substitued for '$source1' above if no corrupt folders exist.
+
+$cb = 0
+foreach ($lnk in $glop) {
+ #number;1,
+ #name; Gemco Corp Cust - 719
+ #ParentPath; \contoso\Sales\bizzHoursReqs
+if ($lnk.number -ne 157) {
+$srcitems = $null
+$srcfld = $null
+$srcitems = $namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Items
+$srcfld = $namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders
+if ($srcfld.count -gt 0) {
+write-host -ForegroundColor cyan "has folders#lvl 1" $lnk.name
+$matchy = $namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders
+foreach ($lf in $srcfld) {
+        If ($matchy.count -eq 0) {
+     $lenny = $namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Add($lf.name)
+     write-host -ForegroundColor blue -BackgroundColor darkyellow "created A subfolder for", $lnk.name, $lf.name, $lenny.folderpath 
+              }
+        #folder hunter level 3 & item mover depth 2
+     $srcitems2 = $null
+  $srcitems2 = $namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).Items
+  $srcfol2 = $null
+  $srcfol2 = $namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).folders
+  if ($srcfol2.count -gt 0) { 
+    write-host -ForegroundColor cyan "has folders#lvl 2" $lnk.name, $lf.name
+$matcht = $namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Folders
+foreach ($lr in $srcfol2) {
+        If ($matcht.count -eq 0) {
+     $leggy = $namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Folders.Add($lr.name)
+     write-host -ForegroundColor blue -BackgroundColor darkyellow "created A subfolder for", $lnk.name, $lf.name,$lr.name $leggy.folderpath 
+     } ## 
+     $srcitems3= $null
+     $srcitems3 = $namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name).Items
+     $srcfol3 = $null
+     $srcfol3 = $namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name).folders
+         if ($srcitems3.count -gt 0) { #migrate depth 3
+        write-host -foregroundcolor Magenta $lnk.name, $lf.name, $lr.name -NoNewline
+        write-host -foregroundcolor Red " LVL3 src:" -NoNewline
+        write-host -NoNewline ($namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name).Items | measure).count
+        write-host -ForegroundColor Yellow "trg:" , ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name).Items | measure).count
+        write-host -foregroundcolor red -backgroundcolor yellow "Attempting item move of ", $srcitems3.count, " items."
+        foreach ($itmb in $srcitems3 ) {
+        $tomb = $itmb.Move($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name))
+        }
+            write-host  -foregroundcolor green "src: " -backgroundcolor darkyellow -NoNewline
+            write-host -nonewline ($namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name).Items | measure).count
+            write-host -ForegroundColor green -backgroundcolor darkyellow "trg:" , ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name).Items | measure).count
+           }
+    else   { #log emptys
+    $cb++
+    $string =  "folder " + $lnk.name + $lf.name + $lr.name + ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Folders.Item($lr.name).Items | measure).count + "moved items;" + $cb
+    add-content log.txt $string
+     }      # log emptyfolders
+  } #  end folder maker level 3
+ }
+  if ($srcitems2.count -gt 0) { #migrate depth 2
+        write-host -foregroundcolor Magenta $lnk.name, $lf.name -NoNewline
+        write-host -foregroundcolor yellow " src:" -NoNewline
+        write-host -NoNewline ($namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).Items | measure).count
+        write-host -ForegroundColor Yellow "trg:" , ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Items | measure).count
+        write-host -foregroundcolor red -backgroundcolor yellow "Attempting item move of ", $srcitems2.count, " items."
+        foreach ($itm2 in $srcitems2 ){
+        $tom2 = $itm2.Move($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name))
+        }
+            write-host  -foregroundcolor green "src: " -backgroundcolor darkyellow -NoNewline
+            write-host -nonewline ($namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Folders.Item($lf.name).Items | measure).count
+            write-host -ForegroundColor green -backgroundcolor darkyellow "trg:" , ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Items | measure).count
+           }
+else   {
+    $cb++
+    $string =  "folder " + $lnk.name + $lf.name + ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Folders.Item($lf.name).Items | measure).count + "moved items;" + $cb
+    add-content log.txt $string
+}  # log empty nested folders
+    }
+} #has folders ## should be recursive
+if ($srcitems.count -gt 0) { #folder lvl 1 mover
+    $desttest = $null #this and next 2 lines are for some sort of catch related to missing folders. needs refinement
+    $desttest = $namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Items
+    if ($desttest.count -eq 0) {
+    write-host -foregroundcolor Magenta $lnk.name -NoNewline
+    write-host -foregroundcolor yellow " src:" -NoNewline
+    write-host -NoNewline ($namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Items | measure).count
+    write-host -ForegroundColor Yellow "trg:" , ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Items | measure).count
+    write-host -foregroundcolor red -backgroundcolor yellow "Attempting item move of ", $srcitems.count, " items."
+    foreach ($itm in $srcitems) {
+    $tom = $itm.Move($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name))
+    }
+    
+   write-host  -foregroundcolor green "src: " -backgroundcolor darkyellow -NoNewline
+   write-host -nonewline ($namespace.Folders.Item(4).Folders.Item('All Public Folders').Folders.Item('contoso').Folders.Item('Sales').Folders.Item('bizzHoursReqs ').Folders.Item($lnk.name).Items | measure).count
+   write-host -ForegroundColor green -backgroundcolor darkyellow "trg:" , ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Items | measure).count
+    }
+   else { #catch some funky shit, not sure i need this
+      # $namespace.Folders.Item(3).Folders.Item('Inbox').folders 
+      if ($lnk.name -match 'apple') {
+write-host "folder exists but i decided not to copy?", $desttest.count
+      }
+      else { #make missings
+      $letty = $namespace.Folders.Item(3).Folders.Item('Inbox').folders.add($lnk.name)
+      write-host -ForegroundColor blue -BackgroundColor darkyellow "created A subfolder for", $lnk.name, $letty.folderpath 
+      } 
+    } 
+   }  #folder lvl 1 mover
+   
+else { #log empty
+$cb++
+$string =  "folder " + $lnk.name + ($namespace.Folders.Item(3).Folders.Item('Inbox').folders.Item($lnk.name).Items | measure).count + "moved items;" + $cb
+add-content log.txt $string
+}  #log empty folders
+}
+
+else {
+    write-host -ForegroundColor Red "157 STOPPED ME", $lnk.name
+    $gort99 = $true
+    }#corrup folder
+
+    if ($srcitems -eq $null){
+        write-host -foregroundcolor red "HALT me HALt me:" , $lnk.name , $cb
+        }#currupt items -- may be garbage. I think we fixed this
+
+}
+
+write-host $cb
+get-date
